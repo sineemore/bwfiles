@@ -68,9 +68,14 @@ const defaultTemplate string = `
 	"reprompt": 0
 }`
 
+const (
+	fieldEncoded = "encoded"
+	fieldMode    = "mode"
+)
+
 func (item bwitem) same(content string, encoded bool, mode uint32) bool {
-	encodedField, encodedOk := item.Fields.get("encoded")
-	modeField, modeOk := item.Fields.get("mode")
+	encodedField, encodedOk := item.Fields.get(fieldEncoded)
+	modeField, modeOk := item.Fields.get(fieldMode)
 
 	return item.Notes == content &&
 		encodedOk && encodedField.Value == strconv.FormatBool(encoded) &&
@@ -114,7 +119,7 @@ func (app application) bitwardenwToEntries(items bwitems) ([]entry, error) {
 			continue
 		}
 
-		encodedField, ok := item.Fields.get("encoded")
+		encodedField, ok := item.Fields.get(fieldEncoded)
 		if !ok {
 			continue
 		}
@@ -124,7 +129,7 @@ func (app application) bitwardenwToEntries(items bwitems) ([]entry, error) {
 			continue
 		}
 
-		modeField, ok := item.Fields.get("mode")
+		modeField, ok := item.Fields.get(fieldMode)
 		if !ok {
 			continue
 		}
@@ -202,12 +207,12 @@ func (app application) entriesToBitwarden(existing bwitems, entries []entry) (bw
 		item.FolderID = app.config.BitwardenFolderID
 		item.Fields = []bwfield{
 			{
-				Name:  "encoded",
+				Name:  fieldEncoded,
 				Value: strconv.FormatBool(encoded),
 				Type:  2,
 			},
 			{
-				Name:  "mode",
+				Name:  fieldMode,
 				Value: strconv.FormatUint(uint64(e.mode), 8),
 				Type:  0,
 			},
