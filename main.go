@@ -52,7 +52,7 @@ Configurations are loaded from the first found of the following locations:
  - The path specified by the BWFILES_CONFIG environment variable.
  - $XDG_CONFIG_HOME/bwfiles/config.json
  - $HOME/.bwfilesrc
-`, `\n`), os.Args[0])
+`, "\n"), os.Args[0])
 	os.Exit(code)
 }
 
