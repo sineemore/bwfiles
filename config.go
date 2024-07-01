@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"os"
 	"path/filepath"
 )
@@ -68,9 +69,6 @@ func loadConfig(configPath string) (config, error) {
 	}
 
 	var cfg config
-	cfg.Commands = defaultCommands
-	cfg.BitwardenNewItemTemplate = []byte(defaultTemplate)
-	cfg.Patterns = []pattern{}
 
 	for _, loc := range configLocations {
 		f, err := os.Open(loc)
@@ -82,7 +80,18 @@ func loadConfig(configPath string) (config, error) {
 		}
 		defer f.Close()
 
-		err = json.NewDecoder(f).Decode(&cfg)
+		b, err := io.ReadAll(f)
+		if err != nil {
+			return config{}, err
+		}
+
+		cfg = config{
+			Commands:                 defaultCommands,
+			BitwardenNewItemTemplate: []byte(defaultTemplate),
+			Patterns:                 []pattern{},
+		}
+
+		err = json.Unmarshal(b, &cfg)
 		if err != nil {
 			return config{}, err
 		}
