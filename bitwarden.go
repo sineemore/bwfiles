@@ -41,6 +41,7 @@ type (
 		name    string
 		path    string
 		mode    uint32
+		owner   string
 		content []byte
 	}
 )
@@ -71,15 +72,18 @@ const defaultTemplate string = `
 const (
 	fieldEncoded = "encoded"
 	fieldMode    = "mode"
+	fieldOwner   = "owner"
 )
 
-func (item bwitem) same(content string, encoded bool, mode uint32) bool {
+func (item bwitem) same(content string, encoded bool, mode uint32, owner string) bool {
 	encodedField, encodedOk := item.Fields.get(fieldEncoded)
 	modeField, modeOk := item.Fields.get(fieldMode)
+	ownerField, ownerOk := item.Fields.get(fieldOwner)
 
 	return item.Notes == content &&
 		encodedOk && encodedField.Value == strconv.FormatBool(encoded) &&
-		modeOk && modeField.Value == strconv.FormatUint(uint64(mode), 8)
+		modeOk && modeField.Value == strconv.FormatUint(uint64(mode), 8) &&
+		ownerOk && ownerField.Value == owner
 }
 
 func (items bwitems) get(name string) (bwitem, bool) {
@@ -139,6 +143,11 @@ func (app application) bitwardenwToEntries(items bwitems) ([]entry, error) {
 			continue
 		}
 
+		ownerField, ok := item.Fields.get(fieldOwner)
+		if !ok {
+			continue
+		}
+
 		content, err := decode(item.Notes, encoded)
 		if err != nil {
 			return nil, err
@@ -148,6 +157,7 @@ func (app application) bitwardenwToEntries(items bwitems) ([]entry, error) {
 			name:    item.Name,
 			path:    filepath.Join(app.rootDirectory, item.Name),
 			mode:    uint32(mode),
+			owner:   ownerField.Value,
 			content: content,
 		})
 	}
@@ -191,7 +201,7 @@ func (app application) entriesToBitwarden(existing bwitems, entries []entry) (bw
 
 		item, exists := existing.get(e.name)
 		if exists {
-			if item.same(content, encoded, e.mode) {
+			if item.same(content, encoded, e.mode, e.owner) {
 				skipped = append(skipped, e)
 				continue
 			}
@@ -214,6 +224,11 @@ func (app application) entriesToBitwarden(existing bwitems, entries []entry) (bw
 			{
 				Name:  fieldMode,
 				Value: strconv.FormatUint(uint64(e.mode), 8),
+				Type:  0,
+			},
+			{
+				Name:  fieldOwner,
+				Value: e.owner,
 				Type:  0,
 			},
 		}

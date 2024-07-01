@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"io/fs"
 	"os"
 	"path/filepath"
+	"syscall"
 )
 
 func (app application) unpack() error {
@@ -28,6 +30,11 @@ func (app application) unpack() error {
 	}
 
 	for _, item := range items {
+		uid, gid, err := getIdentity(item.owner)
+		if err != nil {
+			return err
+		}
+
 		f, err := os.Open(item.path)
 		if err == nil {
 			defer f.Close()
@@ -44,13 +51,21 @@ func (app application) unpack() error {
 
 			f.Close()
 
-			if string(content) == string(item.content) && uint32(info.Mode()) == item.mode {
-				fmt.Printf("skipping %s\n", item.path)
+			stat, ok := info.Sys().(*syscall.Stat_t)
+			if !ok {
+				return fmt.Errorf("could not get owner of %s", item.path)
+			}
+
+			if bytes.Equal(content, item.content) &&
+				uint32(info.Mode()) == item.mode &&
+				stat.Uid == uid &&
+				stat.Gid == gid {
+				// Exactly the same file, skippping
 				continue
 			}
 		}
 
-		fmt.Printf("unpacking %s\n", item.path)
+		fmt.Fprintf(os.Stderr, "unpacking: %s\n", item.path)
 
 		if app.dryRun {
 			continue
@@ -67,13 +82,23 @@ func (app application) unpack() error {
 		if err != nil {
 			var pe *os.PathError
 			if errors.As(err, &pe) {
-				fmt.Printf("TIP: to create directories, use -D option\n")
+				fmt.Fprintf(os.Stderr, "TIP: to create directories, use -D option\n")
 			}
 			return err
 		}
 		defer f.Close()
 
 		_, err = f.Write(item.content)
+		if err != nil {
+			return err
+		}
+
+		err = f.Close()
+		if err != nil {
+			return err
+		}
+
+		err = os.Chown(item.path, int(uid), int(gid))
 		if err != nil {
 			return err
 		}

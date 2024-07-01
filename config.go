@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -55,9 +56,14 @@ func (p *pattern) MarshalJSON() ([]byte, error) {
 }
 
 func loadConfig(configPath string) (config, error) {
-	configLocations := []string{
-		filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "bwfiles/config.json"),
-		filepath.Join(os.Getenv("HOME"), ".bwfilesrc"),
+	var configLocations []string
+
+	if os.Getenv("HOME") != "" {
+		configLocations = append(configLocations, filepath.Join(os.Getenv("HOME"), ".bwfilesrc"))
+	}
+
+	if os.Getenv("XDG_CONFIG_HOME") != "" {
+		configLocations = append(configLocations, filepath.Join(os.Getenv("XDG_CONFIG_HOME"), "bwfiles/config.json"))
 	}
 
 	if os.Getenv("BWFILES_CONFIG") != "" {
@@ -99,5 +105,5 @@ func loadConfig(configPath string) (config, error) {
 		return cfg, nil
 	}
 
-	return cfg, nil
+	return config{}, errors.New("no config file found")
 }

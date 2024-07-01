@@ -5,6 +5,9 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"os/user"
+	"strconv"
+	"syscall"
 )
 
 func (app application) sync() error {
@@ -35,10 +38,26 @@ func (app application) sync() error {
 			return err
 		}
 
+		stat, ok := info.Sys().(*syscall.Stat_t)
+		if !ok {
+			return fmt.Errorf("could not get owner of %s", file.path)
+		}
+
+		u, err := user.LookupId(strconv.Itoa(int(stat.Uid)))
+		if err != nil {
+			return err
+		}
+
+		g, err := user.LookupGroupId(strconv.Itoa(int(stat.Gid)))
+		if err != nil {
+			return err
+		}
+
 		entries = append(entries, entry{
 			name:    file.name,
 			path:    file.path,
 			mode:    uint32(info.Mode()),
+			owner:   u.Username + ":" + g.Name,
 			content: content,
 		})
 	}
@@ -53,17 +72,13 @@ func (app application) sync() error {
 		return err
 	}
 
-	created, updated, removed, skipped, err := app.entriesToBitwarden(existing, entries)
+	created, updated, removed, _, err := app.entriesToBitwarden(existing, entries)
 	if err != nil {
 		return err
 	}
 
-	for _, e := range skipped {
-		fmt.Printf("skipping %s\n", e.path)
-	}
-
 	for _, item := range created {
-		fmt.Printf("creating %s\n", item.Name)
+		fmt.Fprintf(os.Stderr, "creating in bitwarden: %s\n", item.Name)
 
 		if app.dryRun {
 			continue
@@ -76,7 +91,7 @@ func (app application) sync() error {
 	}
 
 	for _, item := range updated {
-		fmt.Printf("updating %s\n", item.Name)
+		fmt.Fprintf(os.Stderr, "updating in bitwarden: %s\n", item.Name)
 
 		if app.dryRun {
 			continue
@@ -90,7 +105,7 @@ func (app application) sync() error {
 
 	if app.allowRemove {
 		for _, item := range removed {
-			fmt.Printf("removing %s\n", item.Name)
+			fmt.Fprintf(os.Stderr, "removing from bitwarden: %s\n", item.Name)
 
 			if app.dryRun {
 				continue
