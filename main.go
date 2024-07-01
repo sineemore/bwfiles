@@ -111,6 +111,10 @@ func main() {
 		allowDir:      allowDir,
 	}
 
+	if os.Getenv("BW_SESSION") == "" {
+		fmt.Fprintln(os.Stderr, "warning: BW_SESSION is not set, bw may not work properly")
+	}
+
 	switch args[0] {
 	case "unpack":
 		err = app.unpack()
